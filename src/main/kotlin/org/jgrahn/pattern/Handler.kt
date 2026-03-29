@@ -15,6 +15,11 @@ interface StopHandler<T, K: PassengerList> {
     fun handleDerived(stop: DerivedStop<T>,
                       manager: K,
                       hooks: InteractionHooks,) : Result
+    fun handleIterable(stop: IterableStop<T, K>,
+                        manager: K) : List<RouteHandlerContext<T, K>>
+    fun handleConditional(stop: ConditionalStop<T, K>,
+                          manager: K,
+                          hooks: InteractionHooks) : ConditionalResult<K>
 }
 
 interface ActionResultHandler<K: PassengerList> {
@@ -23,14 +28,21 @@ interface ActionResultHandler<K: PassengerList> {
     fun handleDerivedResult(result: DerivedResult, manager: K): K
 }
 
+sealed interface StopExecutionResult<T, K: PassengerList> {
+    data class Single<T, K: PassengerList>(val result: Result) : StopExecutionResult<T, K>
+    data class FanOut<T, K: PassengerList>(val contexts: List<RouteHandlerContext<T, K>>) : StopExecutionResult<T, K>
+    data class Conditional<T, K: PassengerList>(val result: ConditionalResult<K>) : StopExecutionResult<T, K>
+}
 
-fun <T, K: PassengerList> handleStop(stop: Stop<T>, context: RouteHandlerContext<T, K>): Result {
+fun <T, K: PassengerList> handleStop(stop: Stop<T, *>, context: RouteHandlerContext<T, K>): StopExecutionResult<T, K> {
     val stopHandler = context.routeHandler.stopHandler
 
     return when (stop) {
-        is CommandStop -> stopHandler.handleCommand(stop, context.passengerList, context.hooks)
-        is QueryStop   -> stopHandler.handleQuery(stop, context.passengerList, context.hooks)
-        is DerivedStop -> stopHandler.handleDerived(stop, context.passengerList, context.hooks)
+        is CommandStop<*> -> StopExecutionResult.Single(stopHandler.handleCommand(stop as CommandStop<T>, context.passengerList, context.hooks))
+        is QueryStop<*>   -> StopExecutionResult.Single(stopHandler.handleQuery(stop as QueryStop<T>, context.passengerList, context.hooks))
+        is DerivedStop<*> -> StopExecutionResult.Single(stopHandler.handleDerived(stop as DerivedStop<T>, context.passengerList, context.hooks))
+        is IterableStop<*, *> -> StopExecutionResult.FanOut(stopHandler.handleIterable(stop as IterableStop<T, K>, context.passengerList))
+        is ConditionalStop<*, *> -> StopExecutionResult.Conditional(stopHandler.handleConditional(stop as ConditionalStop<T, K>, context.passengerList, context.hooks))
     }
 }
 

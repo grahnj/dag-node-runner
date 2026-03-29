@@ -11,65 +11,120 @@ enum class ExecutionStatus(
     InProgress(false),
     Failed(false),
     Completed(false),
+    NotApplicable(false),
 }
-
-data class RouteHandlerContext<T, K: PassengerList>(
-    val initialPassengerIdSet: Set<T>,
-    val passengerList: K,
-    val stops: Set<Stop<T>>,
-    val hooks: InteractionHooks,
-    val routeHandler: RouteHandler<T, K>,
-)
 
 const val THREAD_LIMIT = 3
 
-suspend fun <T, K: PassengerList> routeStops(context: RouteHandlerContext<T, K>) {
-    val stops = context.stops
-    val handler = context.routeHandler
+data class ExecutionResult<T>(
+    val success: Boolean,
+    val failureReasons: Map<StopId, String> = emptyMap(),
+)
+
+suspend fun <T, K: PassengerList> routeStops(context: RouteHandlerContext<T, K>): ExecutionResult<T> {
     val boardedPassengerIdsAtom = AtomicReference(context.initialPassengerIdSet)
     val executionStatusAtom = AtomicReference(
-        stops.associateWith { ExecutionStatus.Pending }
-            .toMutableMap()
+        context.stops.associateWith { ExecutionStatus.Pending }.toMutableMap()
     )
+    val failureReasonsAtom = AtomicReference<Map<StopId, String>>(emptyMap())
     val threadSemaphore = Semaphore(THREAD_LIMIT)
     val stateChanged = Channel<Unit>(Channel.UNLIMITED)
 
-    // TODO: This is wrong, we shouldn't change the state on the same map that we're iterating over
-    val canExecute = executionStatusAtom
-        .get()
-        .filter { (_, v) -> v.isRunnable }
-        .filter { (k, _) ->
-            k.dependsOn.all { passengerId ->
-                boardedPassengerIdsAtom
-                    .get()
-                    .contains(passengerId)
-            }
-        }
-        .forEach { (k, v) ->
-            // TODO: spin up a thread and a channel
-            executionStatusAtom.get()[k] = ExecutionStatus.InProgress
-            // this is dumb to do this right here, the control flow should be ours not the callers
-            // this is going to get run async
-            when (val result = handleStop(k, context)) {
-                is Result.Success -> {
-                    when (result) {
-                        is ActionResult -> {
-                            handleActionResult(result, context.passengerList, context.routeHandler.resultHandler)
-                            executionStatusAtom.get()[k] = ExecutionStatus.Completed
+    routeStopsWithState(
+        context,
+        boardedPassengerIdsAtom,
+        executionStatusAtom,
+        failureReasonsAtom,
+        threadSemaphore,
+        stateChanged
+    )
+
+    val hasFailures = executionStatusAtom.get().values.any { it == ExecutionStatus.Failed }
+    return ExecutionResult(
+        success = !hasFailures,
+        failureReasons = failureReasonsAtom.get()
+    )
+}
+
+private suspend fun <T, K: PassengerList> routeStopsWithState(
+    context: RouteHandlerContext<T, K>,
+    boardedPassengerIdsAtom: AtomicReference<Set<T>>,
+    executionStatusAtom: AtomicReference<MutableMap<Stop<T, *>, ExecutionStatus>>,
+    failureReasonsAtom: AtomicReference<Map<StopId, String>>,
+    threadSemaphore: Semaphore,
+    stateChanged: Channel<Unit>,
+) {
+    suspend fun executeStop(stop: Stop<T, *>) {
+        threadSemaphore.acquire()
+        try {
+            val result = handleStop(stop, context)
+            when (result) {
+                is StopExecutionResult.FanOut<*, *> -> {
+                    val fanOutContexts = result.contexts as List<RouteHandlerContext<T, K>>
+                    fanOutContexts.forEach { fanOutContext ->
+                        routeStopsWithState(
+                            fanOutContext,
+                            boardedPassengerIdsAtom,
+                            executionStatusAtom,
+                            failureReasonsAtom,
+                            threadSemaphore,
+                            stateChanged
+                        )
+                    }
+                    boardedPassengerIdsAtom.getAndUpdate { it + stop.produces }
+                    executionStatusAtom.get()[stop] = ExecutionStatus.Completed
+                }
+                is StopExecutionResult.Single<*, *> -> {
+                    when (result.result) {
+                        is Result.Success -> {
+                            if (result.result is ActionResult) {
+                                handleActionResult(result.result, context.passengerList, context.routeHandler.resultHandler)
+                            }
+                            boardedPassengerIdsAtom.getAndUpdate { it + stop.produces }
+                            executionStatusAtom.get()[stop] = ExecutionStatus.Completed
                         }
-                        else -> {
-                            executionStatusAtom.get()[k] = ExecutionStatus.Failed
-                            throw NotImplementedError("This route should never happen: ${k.stopId} : $result")
+                        is Result.Failure -> {
+                            executionStatusAtom.get()[stop] = ExecutionStatus.Failed
+                            failureReasonsAtom.getAndUpdate { it + (stop.stopId to (result.result).message) }
                         }
                     }
                 }
-                is Result.Failure -> {
-                    // TODO: Handle this failure
-                    executionStatusAtom.get()[k] = ExecutionStatus.Failed
+                is StopExecutionResult.Conditional<*, *> -> {
+                    val conditionalResult = result.result as ConditionalResult<K>
+                    if (conditionalResult.passed) {
+                        boardedPassengerIdsAtom.getAndUpdate { it + stop.produces }
+                        executionStatusAtom.get()[stop] = ExecutionStatus.Completed
+                    } else {
+                        executionStatusAtom.get()[stop] = ExecutionStatus.NotApplicable
+                        failureReasonsAtom.getAndUpdate { it + (stop.stopId to (conditionalResult.reason.orEmpty())) }
+                    }
                 }
             }
-            // put the result into the passenger list
-            // update the stop status to be completed or failed depending on the result
-            // (our internal executor should handle the stop status stuff)
+            stateChanged.send(Unit)
+        } finally {
+            threadSemaphore.release()
         }
+    }
+
+    while (executionStatusAtom.get().values.any { it.isRunnable }) {
+        val runnableStops = executionStatusAtom.get()
+            .filter { (_, status) -> status.isRunnable }
+            .filter { (stop, _) ->
+                stop.dependsOn.all { passengerId ->
+                    boardedPassengerIdsAtom.get().contains(passengerId)
+                }
+            }
+            .keys
+
+        if (runnableStops.isEmpty()) break
+
+        runnableStops.forEach { stop ->
+            executionStatusAtom.get()[stop] = ExecutionStatus.InProgress
+            executeStop(stop)
+        }
+
+        stateChanged.receive()
+    }
+
+    stateChanged.close()
 }

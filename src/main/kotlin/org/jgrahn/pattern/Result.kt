@@ -9,3 +9,8 @@ sealed interface Result {
     ) : Result
 }
 
+data class ConditionalResult<K: PassengerList>(
+    val passed: Boolean,
+    val reason: String? = null,
+    val passengerList: K? = null,
+)

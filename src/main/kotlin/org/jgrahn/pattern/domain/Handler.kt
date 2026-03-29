@@ -3,9 +3,12 @@ package org.jgrahn.pattern.domain
 import org.jgrahn.pattern.ActionResultHandler
 import org.jgrahn.pattern.CommandResult
 import org.jgrahn.pattern.CommandStop
+import org.jgrahn.pattern.ConditionalResult
+import org.jgrahn.pattern.ConditionalStop
 import org.jgrahn.pattern.DerivedResult
 import org.jgrahn.pattern.DerivedStop
 import org.jgrahn.pattern.InteractionHooks
+import org.jgrahn.pattern.IterableStop
 import org.jgrahn.pattern.QueryResult
 import org.jgrahn.pattern.QueryStop
 import org.jgrahn.pattern.Result
@@ -47,6 +50,21 @@ object DomainStopHandler : StopHandler<PassengerId, PassengerListManager> {
         manager: PassengerListManager,
         hooks: InteractionHooks
     ): Result {
+        TODO("Not yet implemented")
+    }
+
+    override fun handleIterable(
+        stop: IterableStop<PassengerId, PassengerListManager>,
+        manager: PassengerListManager
+    ): List<RouteHandlerContext<PassengerId, PassengerListManager>> {
+        TODO("Not yet implemented")
+    }
+
+    override fun handleConditional(
+        stop: ConditionalStop<PassengerId, PassengerListManager>,
+        manager: PassengerListManager,
+        hooks: InteractionHooks
+    ): ConditionalResult<PassengerListManager> {
         TODO("Not yet implemented")
     }
 

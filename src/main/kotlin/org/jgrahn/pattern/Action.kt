@@ -1,12 +1,13 @@
 package org.jgrahn.pattern
 
-interface CommandResult
-interface QueryResult
+interface CommandResultData
 
-interface Command<R: CommandResult> {
-    fun runTyped(execute: () -> R): R = execute()
-}
+sealed interface ActionResult : Result.Success
 
-interface Query<R: QueryResult> {
-    fun runTyped(execute: () -> R): R = execute()
-}
+interface CommandResult : ActionResult
+interface QueryResult : ActionResult
+interface DerivedResult : ActionResult
+
+interface Command<R: CommandResult>
+interface Query<R: QueryResult>
+interface Derivative<R: DerivedResult>

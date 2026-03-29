@@ -1,13 +1,11 @@
 package org.jgrahn.pattern
 
-sealed interface Result<out T> {
-    open class Success<T>(
-        val data: T
-    ) : Result<T>
+sealed interface Result {
+    interface Success : Result
 
     data class Failure(
         val message: String,
         val error: Error,
-    ) : Result<Nothing>
+    ) : Result
 }
 

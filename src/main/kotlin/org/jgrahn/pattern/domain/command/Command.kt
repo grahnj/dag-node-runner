@@ -1,4 +1,4 @@
-package org.jgrahn.pattern.domain
+package org.jgrahn.pattern.domain.command
 
 import org.jgrahn.pattern.Command
 

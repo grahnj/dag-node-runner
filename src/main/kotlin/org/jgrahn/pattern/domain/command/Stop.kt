@@ -1,23 +1,20 @@
-package org.jgrahn.pattern.domain
+package org.jgrahn.pattern.domain.command
 
 import org.jgrahn.pattern.CommandStop
-import org.jgrahn.pattern.QueryStop
+import org.jgrahn.pattern.StopId
+import org.jgrahn.pattern.domain.DomainStopId
+import org.jgrahn.pattern.domain.PassengerId
 
 sealed class DomainCommandStop(
+    override val stopId: StopId,
     override val produces: Set<PassengerId>,
     override val dependsOn: Set<PassengerId>
 ) : CommandStop<PassengerId>(
-    produces, dependsOn
-)
-
-sealed class DomainQueryStop(
-    override val produces: Set<PassengerId>,
-    override val dependsOn: Set<PassengerId>
-) : QueryStop<PassengerId>(
-    produces, dependsOn
+    stopId, produces, dependsOn
 )
 
 data object BuildClassroomCommandStop : DomainCommandStop(
+    stopId = DomainStopId.BuildClassroomStop,
     produces = setOf(
         PassengerId.Classroom,
     ),
@@ -28,6 +25,7 @@ data object BuildClassroomCommandStop : DomainCommandStop(
 )
 
 data object BuildStudentRosterCommandStop : DomainCommandStop(
+    stopId = DomainStopId.BuildStudentRosterStop,
     produces = setOf(
         PassengerId.StudentRosterList,
     ),
@@ -36,16 +34,4 @@ data object BuildStudentRosterCommandStop : DomainCommandStop(
         PassengerId.ClassroomId,
         PassengerId.Classroom,
     )
-)
-
-data object FindClassRoomIdStop
-    : DomainQueryStop(
-    produces = setOf(PassengerId.ClassroomId),
-    dependsOn = emptySet(),
-)
-
-val routeStops = setOf(
-    FindClassRoomIdStop,
-    BuildStudentRosterCommandStop,
-    BuildClassroomCommandStop,
 )

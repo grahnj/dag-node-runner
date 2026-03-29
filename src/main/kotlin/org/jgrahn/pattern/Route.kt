@@ -4,88 +4,72 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.sync.Semaphore
 import java.util.concurrent.atomic.AtomicReference
 
-
-interface RouteHandler<T> {
-    val stopHandler: StopHandler<T>
-    val resultHandler: ResultHandler
-    fun handleStop(stop: Stop<T>, interactionHooks: InteractionHooks, manager: PassengerList): T
-    fun handleResult(result: T, manager: PassengerList): PassengerList
+enum class ExecutionStatus(
+    val isRunnable: Boolean,
+) {
+    Pending(true),
+    InProgress(false),
+    Failed(false),
+    Completed(false),
 }
 
-interface StopHandler<T> {
-    fun handleCommand(stop: CommandStop<T>,
-                      manager: PassengerList,
-                      hooks: InteractionHooks,)
-    fun handleQuery(stop: QueryStop<T>,
-                    manager: PassengerList,
-                    hooks: InteractionHooks,)
-    fun handleDerived(stop: DerivedStop<T>,
-                    manager: PassengerList,
-                    hooks: InteractionHooks,)
-}
-
-interface ResultHandler {
-    fun handleCommandResult(result: Result, manager: PassengerList) : PassengerList
-    fun handleQueryResult(result: Result, manager: PassengerList): PassengerList
-    fun handleDerivedResult(result: Result, manager: PassengerList): PassengerList
-}
-
-
-fun <T> executeStop(stop: Stop<T>, interactionHooks: InteractionHooks, manager: PassengerList, domainHandler: StopHandler<T>): Result {
-    when (stop) {
-        is CommandStop -> domainHandler.handleCommand(stop, manager, interactionHooks)
-        is QueryStop   -> domainHandler.handleQuery(stop, manager, interactionHooks)
-        is DerivedStop -> domainHandler.handleDerived(stop, manager, interactionHooks)
-    }
-
-    TODO("This is not done yet")
-}
-
-fun handleResult(result: Result, manager: PassengerList, handler: ResultHandler): PassengerList {
-    return when (result) {
-        is CommandResult -> handler.handleCommandResult(result, manager)
-    }
-}
-
-data class RouteHandlerContext<T>(
-    val manager: PassengerList,
+data class RouteHandlerContext<T, K: PassengerList>(
+    val initialPassengerIdSet: Set<T>,
+    val passengerList: K,
     val stops: Set<Stop<T>>,
     val hooks: InteractionHooks,
-    val routeHandler: RouteHandler<T>,
+    val routeHandler: RouteHandler<T, K>,
 )
 
 const val THREAD_LIMIT = 3
 
-suspend fun <T> routeStops(context: RouteHandlerContext<T>) {
+suspend fun <T, K: PassengerList> routeStops(context: RouteHandlerContext<T, K>) {
     val stops = context.stops
     val handler = context.routeHandler
-    val managerAtom = AtomicReference(context.manager)
-    val stopStatusAtom = AtomicReference(stops.associateWith { StopStatus.Pending })
-
+    val boardedPassengerIdsAtom = AtomicReference(context.initialPassengerIdSet)
+    val executionStatusAtom = AtomicReference(
+        stops.associateWith { ExecutionStatus.Pending }
+            .toMutableMap()
+    )
     val threadSemaphore = Semaphore(THREAD_LIMIT)
-
     val stateChanged = Channel<Unit>(Channel.UNLIMITED)
 
-//    stops
-//        .filter { it.stopStatus.isRunnable }
-//        .filter { it.dependsOn.all { passengerId -> manager.boardedPassengerIds.contains(passengerId) } }
-//        .forEach {
-//            it.stopStatus = StopStatus.InProgress
-//            // this is dumb to do this right here, the control flow should be ours not the callers
-//            // this is going to get run async
-//            // TODO: something is off here, but it's not clicking for me
-//            val result = handler.handleStop(it, hooks, manager)
-//
-//            when (result) {
-//                is Result.Success -> {
-//                    // TODO: Handle success results
-//                }
-//                is Result.Failure -> {
-//                    // TODO: Handle this failure
-//                }
-//            }
-//            // put the result into the passenger list
-//            // update the stop status to be completed or failed depending on the result
-//            // (our internal executor should handle the stop status stuff)
-//        }
+    // TODO: This is wrong, we shouldn't change the state on the same map that we're iterating over
+    val canExecute = executionStatusAtom
+        .get()
+        .filter { (_, v) -> v.isRunnable }
+        .filter { (k, _) ->
+            k.dependsOn.all { passengerId ->
+                boardedPassengerIdsAtom
+                    .get()
+                    .contains(passengerId)
+            }
+        }
+        .forEach { (k, v) ->
+            // TODO: spin up a thread and a channel
+            executionStatusAtom.get()[k] = ExecutionStatus.InProgress
+            // this is dumb to do this right here, the control flow should be ours not the callers
+            // this is going to get run async
+            when (val result = handleStop(k, context)) {
+                is Result.Success -> {
+                    when (result) {
+                        is ActionResult -> {
+                            handleActionResult(result, context.passengerList, context.routeHandler.resultHandler)
+                            executionStatusAtom.get()[k] = ExecutionStatus.Completed
+                        }
+                        else -> {
+                            executionStatusAtom.get()[k] = ExecutionStatus.Failed
+                            throw NotImplementedError("This route should never happen: ${k.stopId} : $result")
+                        }
+                    }
+                }
+                is Result.Failure -> {
+                    // TODO: Handle this failure
+                    executionStatusAtom.get()[k] = ExecutionStatus.Failed
+                }
+            }
+            // put the result into the passenger list
+            // update the stop status to be completed or failed depending on the result
+            // (our internal executor should handle the stop status stuff)
+        }
 }

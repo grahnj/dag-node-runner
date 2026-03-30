@@ -13,11 +13,16 @@ sealed class DomainQueryStop(
     stopId, produces, dependsOn
 )
 
+//data object FindClassRoomIdStop
+//    : DomainQueryStop(
+//    stopId = DomainStopId.FindClassroomIdStop,
+//    produces = setOf(PassengerId.ClassroomId),
+//    dependsOn = emptySet(),
+//)
 
-
-data object FindClassRoomIdStop
+data object FindAllActiveStudentsStop
     : DomainQueryStop(
-    stopId = DomainStopId.FindClassroomIdStop,
-    produces = setOf(PassengerId.ClassroomId),
-    dependsOn = emptySet(),
+    stopId = DomainStopId.FindAllActiveStudentsStop,
+        produces = setOf(PassengerId.AllActiveStudentList),
+        dependsOn = emptySet(),
 )

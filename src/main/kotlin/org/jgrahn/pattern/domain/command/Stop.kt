@@ -13,8 +13,8 @@ sealed class DomainCommandStop(
     stopId, produces, dependsOn
 )
 
-data object BuildClassroomCommandStop : DomainCommandStop(
-    stopId = DomainStopId.BuildClassroomStop,
+data object CreateClassroomCommandStop : DomainCommandStop(
+    stopId = DomainStopId.CreateClassroomStop,
     produces = setOf(
         PassengerId.Classroom,
     ),
@@ -24,8 +24,8 @@ data object BuildClassroomCommandStop : DomainCommandStop(
     )
 )
 
-data object BuildStudentRosterCommandStop : DomainCommandStop(
-    stopId = DomainStopId.BuildStudentRosterStop,
+data object CreateStudentRosterCommandStop : DomainCommandStop(
+    stopId = DomainStopId.CreateStudentRosterStop,
     produces = setOf(
         PassengerId.StudentRosterList,
     ),

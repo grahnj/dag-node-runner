@@ -10,13 +10,13 @@ fun routeDomainCommandStop(
     hooks: InteractionHooks
 ) : Result =
     when (stop) {
-        is BuildClassroomCommandStop -> {
-            BuildClassroomCommand(
+        is CreateClassroomCommandStop -> {
+            CreateClassroomCommand(
                 classroomId = manager.classroomId!!,
             )
         }
-        is BuildStudentRosterCommandStop -> {
-            BuildStudentRosterCommand(
+        is CreateStudentRosterCommandStop -> {
+            CreateStudentRosterCommand(
                 classroomId = manager.classroomId!!,
             )
         }

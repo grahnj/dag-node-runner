@@ -16,7 +16,7 @@ interface StopHandler<T, K: PassengerList> {
                       manager: K,
                       hooks: InteractionHooks,) : Result
     fun handleIterable(stop: IterableStop<T, K>,
-                        manager: K) : List<RouteHandlerContext<T, K>>
+                        context: RouteHandlerContext<T, K>) : List<RouteHandlerContext<T, K>>
     fun handleConditional(stop: ConditionalStop<T, K>,
                           manager: K,
                           hooks: InteractionHooks) : ConditionalResult<K>
@@ -41,7 +41,7 @@ fun <T, K: PassengerList> handleStop(stop: Stop<T, *>, context: RouteHandlerCont
         is CommandStop<*> -> StopExecutionResult.Single(stopHandler.handleCommand(stop as CommandStop<T>, context.passengerList, context.hooks))
         is QueryStop<*>   -> StopExecutionResult.Single(stopHandler.handleQuery(stop as QueryStop<T>, context.passengerList, context.hooks))
         is DerivedStop<*> -> StopExecutionResult.Single(stopHandler.handleDerived(stop as DerivedStop<T>, context.passengerList, context.hooks))
-        is IterableStop<*, *> -> StopExecutionResult.FanOut(stopHandler.handleIterable(stop as IterableStop<T, K>, context.passengerList))
+        is IterableStop<*, *> -> StopExecutionResult.FanOut(stopHandler.handleIterable(stop as IterableStop<T, K>, context))
         is ConditionalStop<*, *> -> StopExecutionResult.Conditional(stopHandler.handleConditional(stop as ConditionalStop<T, K>, context.passengerList, context.hooks))
     }
 }

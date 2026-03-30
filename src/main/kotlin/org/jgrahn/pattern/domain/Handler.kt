@@ -19,6 +19,10 @@ import org.jgrahn.pattern.domain.command.DomainCommandResult
 import org.jgrahn.pattern.domain.command.DomainCommandStop
 import org.jgrahn.pattern.domain.command.routeDomainCommandResult
 import org.jgrahn.pattern.domain.command.routeDomainCommandStop
+import org.jgrahn.pattern.domain.iterable.DomainIterableStop
+import org.jgrahn.pattern.domain.iterable.routeDomainIterableStop
+import org.jgrahn.pattern.domain.query.DomainQueryStop
+import org.jgrahn.pattern.domain.query.routeDomainQueryStop
 
 
 object DomainStopHandler : StopHandler<PassengerId, PassengerListManager> {
@@ -32,7 +36,7 @@ object DomainStopHandler : StopHandler<PassengerId, PassengerListManager> {
                 routeDomainCommandStop(stop, manager, hooks)
             }
             else -> {
-                Result.Failure("Unknown command: ${stop.javaClass.canonicalName}", NotImplementedError())
+                Result.Failure("Unknown command stop: ${stop.javaClass.canonicalName}", NotImplementedError())
             }
         }
 
@@ -41,9 +45,15 @@ object DomainStopHandler : StopHandler<PassengerId, PassengerListManager> {
         stop: QueryStop<PassengerId>,
         manager: PassengerListManager,
         hooks: InteractionHooks
-    ): Result {
-        TODO("Not yet implemented")
-    }
+    ): Result =
+        when (stop) {
+            is DomainQueryStop -> {
+                routeDomainQueryStop(stop, manager, hooks)
+            }
+            else -> {
+                Result.Failure("Unknown query stop: ${stop.javaClass.canonicalName}", NotImplementedError())
+            }
+        }
 
     override fun handleDerived(
         stop: DerivedStop<PassengerId>,
@@ -55,10 +65,10 @@ object DomainStopHandler : StopHandler<PassengerId, PassengerListManager> {
 
     override fun handleIterable(
         stop: IterableStop<PassengerId, PassengerListManager>,
-        manager: PassengerListManager
-    ): List<RouteHandlerContext<PassengerId, PassengerListManager>> {
-        TODO("Not yet implemented")
-    }
+        context: RouteHandlerContext<PassengerId, PassengerListManager>,
+    ): List<RouteHandlerContext<PassengerId, PassengerListManager>> =
+        routeDomainIterableStop(stop as DomainIterableStop, context)
+
 
     override fun handleConditional(
         stop: ConditionalStop<PassengerId, PassengerListManager>,

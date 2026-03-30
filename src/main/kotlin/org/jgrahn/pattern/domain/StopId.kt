@@ -3,7 +3,10 @@ package org.jgrahn.pattern.domain
 import org.jgrahn.pattern.StopId
 
 enum class DomainStopId : StopId {
-    BuildClassroomStop,
-    BuildStudentRosterStop,
+    CreateClassroomStop,
+    CreateStudentRosterStop,
     FindClassroomIdStop,
+    FindAllActiveStudentsStop,
+    IterateStudentRosterAccumulatorStop,
+    StudentRosterAccumulatorComputeStop
 }

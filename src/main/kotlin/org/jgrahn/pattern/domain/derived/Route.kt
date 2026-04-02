@@ -7,22 +7,31 @@ fun routeDomainDerivedStop(
     stop: DomainDerivedStop,
     manager: PassengerListManager,
 ) : Result =
-    runCatching {
-        when (stop) {
-            is StudentRosterAccumulatorComputeStop -> {
-                val allActiveStudents = manager.allActiveStudents
+    when (stop) {
+        StudentRosterAccumulatorComputeStop -> {
+            val allStudents = manager.allActiveStudents
+            val allClassrooms = manager.allClassrooms
 
-                checkNotNull(allActiveStudents)
+            checkNotNull(allStudents)
+            checkNotNull(allClassrooms)
 
-                val compute = StudentRosterAccumulatorCompute(
-                    allStudents = allActiveStudents
-                )
+            val request = StudentRosterAccumulatorComputeRequest(
+                allStudents = allStudents,
+                allClassrooms = allClassrooms,
+            )
 
-                StudentDomain.accumulateStudentRoster(compute)
+            StudentDomain.accumulateStudentRoster(request)
+        }
+    }
+
+fun routeDomainDerivedResult(
+    result: DomainDerivedResult,
+    manager: PassengerListManager,
+) : PassengerListManager =
+    when (result) {
+        is StudentRosterAccumulatorComputeResult -> {
+            manager.apply {
+                studentRosterAccumulator = result.accumulator
             }
         }
-    }.getOrElse {
-        Result.Failure(
-            "Something went wrong in a derived step, likely related to state",
-            Error(it))
     }

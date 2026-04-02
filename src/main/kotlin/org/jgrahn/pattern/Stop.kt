@@ -8,10 +8,14 @@ sealed interface Stop<T, out Output> {
     val dependsOn: Set<T>
 }
 
+data class Route<T>(
+    val stops: Set<Stop<T, *>>
+)
+
 data class RouteHandlerContext<T, K: PassengerList>(
     val initialPassengerIdSet: Set<T>,
     val passengerList: K,
-    val stops: Set<Stop<T, *>>,
+    val route: Route<T>,
     val hooks: InteractionHooks,
     val routeHandler: RouteHandler<T, K>,
 )

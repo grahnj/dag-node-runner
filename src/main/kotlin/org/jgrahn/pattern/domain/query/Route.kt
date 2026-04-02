@@ -13,6 +13,9 @@ fun routeDomainQueryStop(
         is FindAllActiveStudentsStop -> {
             FindAllActiveStudentsQuery
         }
+        is FindAllClassroomsStop -> {
+            FindAllClassroomsQuery
+        }
     }
         .let {
             hooks.runQuery(it)
@@ -24,6 +27,13 @@ fun routeDomainQueryResult(
 ) =
     when (result) {
         is AllActiveStudentListResult -> {
-            manager.allActiveStudents = result.activeStudents
+            manager.apply {
+                allActiveStudents = result.activeStudents
+            }
+        }
+        is AllClassroomsResult -> {
+            manager.apply {
+                allClassrooms = result.classrooms
+            }
         }
     }

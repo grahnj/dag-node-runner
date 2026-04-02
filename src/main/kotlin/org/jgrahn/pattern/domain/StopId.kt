@@ -5,8 +5,8 @@ import org.jgrahn.pattern.StopId
 enum class DomainStopId : StopId {
     CreateClassroomStop,
     CreateStudentRosterStop,
-    FindClassroomIdStop,
     FindAllActiveStudentsStop,
+    FindAllClassroomsStop,
     IterateStudentRosterAccumulatorStop,
-    StudentRosterAccumulatorComputeStop
+    StudentRosterAccumulatorComputeStop,
 }

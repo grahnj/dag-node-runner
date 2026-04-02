@@ -10,14 +10,25 @@ fun routeDomainCommandStop(
     hooks: InteractionHooks
 ) : Result =
     when (stop) {
-        is CreateClassroomCommandStop -> {
+        CreateClassroomCommandStop -> {
+            val classroomId = manager.classroomId
+
+            checkNotNull(classroomId)
+
             CreateClassroomCommand(
-                classroomId = manager.classroomId!!,
+                classroomId = classroomId,
             )
         }
-        is CreateStudentRosterCommandStop -> {
+        CreateStudentRosterCommandStop -> {
+            val classroomId = manager.classroomId
+            val studentRosterList = manager.studentRosterList
+
+            checkNotNull(classroomId)
+            checkNotNull(studentRosterList)
+
             CreateStudentRosterCommand(
-                classroomId = manager.classroomId!!,
+                classroomId = classroomId,
+                studentRosterList = studentRosterList,
             )
         }
     }
@@ -25,15 +36,14 @@ fun routeDomainCommandStop(
             hooks.runCommand(it)
         }
 
-fun routeDomainCommandResult(result: DomainCommandResult, manager: PassengerListManager): PassengerListManager {
+fun routeDomainCommandResult(result: DomainCommandResult, manager: PassengerListManager): PassengerListManager =
     when (result) {
         is BuildClassroomResult -> {
-            manager.classroom = result.classroom
+            manager.apply {
+                classroom = result.classroom
+            }
         }
         is BuildStudentRosterResult -> {
-            manager.studentRosterList = result.studentRoster
+            manager
         }
     }
-
-    return manager
-}

@@ -5,4 +5,4 @@ import org.jgrahn.pattern.domain.StudentRosterAccumulator
 
 data class StudentRosterAccumulatorComputeResult(
     val accumulator: StudentRosterAccumulator,
-) : DerivedResult
+) : DomainDerivedResult

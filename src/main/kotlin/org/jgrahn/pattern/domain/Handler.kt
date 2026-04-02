@@ -12,6 +12,7 @@ import org.jgrahn.pattern.IterableStop
 import org.jgrahn.pattern.QueryResult
 import org.jgrahn.pattern.QueryStop
 import org.jgrahn.pattern.Result
+import org.jgrahn.pattern.Route
 import org.jgrahn.pattern.RouteHandler
 import org.jgrahn.pattern.RouteHandlerContext
 import org.jgrahn.pattern.StopHandler
@@ -19,12 +20,19 @@ import org.jgrahn.pattern.domain.command.DomainCommandResult
 import org.jgrahn.pattern.domain.command.DomainCommandStop
 import org.jgrahn.pattern.domain.command.routeDomainCommandResult
 import org.jgrahn.pattern.domain.command.routeDomainCommandStop
+import org.jgrahn.pattern.domain.derived.DomainDerivedResult
+import org.jgrahn.pattern.domain.derived.DomainDerivedStop
+import org.jgrahn.pattern.domain.derived.routeDomainDerivedResult
+import org.jgrahn.pattern.domain.derived.routeDomainDerivedStop
 import org.jgrahn.pattern.domain.iterable.DomainIterableStop
 import org.jgrahn.pattern.domain.iterable.routeDomainIterableStop
+import org.jgrahn.pattern.domain.query.DomainQueryResult
 import org.jgrahn.pattern.domain.query.DomainQueryStop
+import org.jgrahn.pattern.domain.query.routeDomainQueryResult
 import org.jgrahn.pattern.domain.query.routeDomainQueryStop
 
-
+// FIXME: There are two patterns here, we probably need to use the more verbose one
+//        so that we can wrap everything in a result
 object DomainStopHandler : StopHandler<PassengerId, PassengerListManager> {
     override fun handleCommand(
         stop: CommandStop<PassengerId>,
@@ -59,9 +67,9 @@ object DomainStopHandler : StopHandler<PassengerId, PassengerListManager> {
         stop: DerivedStop<PassengerId>,
         manager: PassengerListManager,
         hooks: InteractionHooks
-    ): Result {
-        TODO("Not yet implemented")
-    }
+    ): Result =
+        routeDomainDerivedStop(stop as DomainDerivedStop, manager)
+
 
     override fun handleIterable(
         stop: IterableStop<PassengerId, PassengerListManager>,
@@ -90,7 +98,7 @@ object DomainActionResultHandler : ActionResultHandler<PassengerListManager> {
                 routeDomainCommandResult(result, manager)
             }
             else -> {
-                throw NotImplementedError("This result was configured incorrectly: $result")
+                throw NotImplementedError("This command result was configured incorrectly: $result")
             }
         }
 
@@ -98,16 +106,29 @@ object DomainActionResultHandler : ActionResultHandler<PassengerListManager> {
     override fun handleQueryResult(
         result: QueryResult,
         manager: PassengerListManager
-    ): PassengerListManager {
-        TODO("Not yet implemented")
-    }
+    ): PassengerListManager =
+        when (result) {
+            is DomainQueryResult -> {
+                routeDomainQueryResult(result, manager)
+            }
+            else -> {
+                throw NotImplementedError("This query result was configured incorrectly: $result")
+            }
+        }
+
 
     override fun handleDerivedResult(
         result: DerivedResult,
         manager: PassengerListManager
-    ): PassengerListManager {
-        TODO("Not yet implemented")
-    }
+    ): PassengerListManager =
+        when (result) {
+            is DomainDerivedResult -> {
+                routeDomainDerivedResult(result, manager)
+            }
+            else -> {
+                throw NotImplementedError("This derived result was configured incorrectly: $result")
+            }
+        }
 
 }
 
@@ -118,10 +139,12 @@ object DomainRouteHandler : RouteHandler<PassengerId, PassengerListManager> {
         get() = DomainActionResultHandler
 }
 
-val exampleContext = RouteHandlerContext<PassengerId, PassengerListManager>(
+val exampleContext = RouteHandlerContext(
     routeHandler = DomainRouteHandler,
     hooks = TODO(),
     passengerList = PassengerListManager(),
-    stops = emptySet(),
+    route = Route(
+        stops = emptySet()
+    ),
     initialPassengerIdSet = emptySet(),
 )

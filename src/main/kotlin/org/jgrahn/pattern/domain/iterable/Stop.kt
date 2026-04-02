@@ -19,6 +19,7 @@ data object IterateStudentRosterAccumulatorStop : DomainIterableStop(
         PassengerId.StudentRosterAccumulator,
     ),
     produces = setOf(
+        PassengerId.ClassroomId,
         PassengerId.StudentRosterList,
     )
 )

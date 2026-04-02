@@ -24,7 +24,7 @@ data class ExecutionResult<T>(
 suspend fun <T, K: PassengerList> routeStops(context: RouteHandlerContext<T, K>): ExecutionResult<T> {
     val boardedPassengerIdsAtom = AtomicReference(context.initialPassengerIdSet)
     val executionStatusAtom = AtomicReference(
-        context.stops.associateWith { ExecutionStatus.Pending }.toMutableMap()
+        context.route.stops.associateWith { ExecutionStatus.Pending }.toMutableMap()
     )
     val failureReasonsAtom = AtomicReference<Map<StopId, String>>(emptyMap())
     val threadSemaphore = Semaphore(THREAD_LIMIT)

@@ -15,10 +15,11 @@ sealed class DomainDerivedStop(
 
 data object StudentRosterAccumulatorComputeStop : DomainDerivedStop(
     stopId = DomainStopId.StudentRosterAccumulatorComputeStop,
+    dependsOn = setOf(
+        PassengerId.AllActiveStudentList,
+        PassengerId.AllClassroomsList,
+    ),
     produces = setOf(
         PassengerId.StudentRosterAccumulator
     ),
-    dependsOn = setOf(
-        PassengerId.AllActiveStudentList
-    )
 )

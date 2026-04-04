@@ -30,8 +30,7 @@ data object CreateStudentRosterCommandStop : DomainCommandStop(
         PassengerId.StudentRosterList,
     ),
     dependsOn = setOf(
-        PassengerId.ClassroomLocationId,
+        PassengerId.StudentRosterList,
         PassengerId.ClassroomId,
-        PassengerId.Classroom,
     )
 )

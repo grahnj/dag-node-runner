@@ -60,6 +60,9 @@ private suspend fun <T, K: PassengerList> routeStopsWithState(
             val result = handleStop(stop, context)
             when (result) {
                 is StopExecutionResult.FanOut<*, *> -> {
+                    boardedPassengerIdsAtom.getAndUpdate { it + stop.produces }
+                    executionStatusAtom.get()[stop] = ExecutionStatus.Completed
+
                     val fanOutContexts = result.contexts as List<RouteHandlerContext<T, K>>
                     fanOutContexts.forEach { fanOutContext ->
                         routeStopsWithState(
@@ -71,21 +74,22 @@ private suspend fun <T, K: PassengerList> routeStopsWithState(
                             stateChanged
                         )
                     }
-                    boardedPassengerIdsAtom.getAndUpdate { it + stop.produces }
-                    executionStatusAtom.get()[stop] = ExecutionStatus.Completed
+
                 }
                 is StopExecutionResult.Single<*, *> -> {
-                    when (result.result) {
+                    when (val singleResult = result.result) {
                         is Result.Success -> {
-                            if (result.result is ActionResult) {
-                                handleActionResult(result.result, context.passengerList, context.routeHandler.resultHandler)
+                            when (singleResult) {
+                                is ActionResult -> {
+                                    handleActionResult(singleResult, context.passengerList, context.routeHandler.resultHandler)
+                                    boardedPassengerIdsAtom.getAndUpdate { it + stop.produces }
+                                    executionStatusAtom.get()[stop] = ExecutionStatus.Completed
+                                }
                             }
-                            boardedPassengerIdsAtom.getAndUpdate { it + stop.produces }
-                            executionStatusAtom.get()[stop] = ExecutionStatus.Completed
                         }
                         is Result.Failure -> {
                             executionStatusAtom.get()[stop] = ExecutionStatus.Failed
-                            failureReasonsAtom.getAndUpdate { it + (stop.stopId to (result.result).message) }
+                            failureReasonsAtom.getAndUpdate { it + (stop.stopId to singleResult.message) }
                         }
                     }
                 }
@@ -100,7 +104,9 @@ private suspend fun <T, K: PassengerList> routeStopsWithState(
                     }
                 }
             }
-            stateChanged.send(Unit)
+            if (!stateChanged.isClosedForSend) {
+                stateChanged.send(Unit)
+            }
         } finally {
             threadSemaphore.release()
         }
@@ -123,8 +129,12 @@ private suspend fun <T, K: PassengerList> routeStopsWithState(
             executeStop(stop)
         }
 
-        stateChanged.receive()
+        if (!stateChanged.isClosedForReceive) {
+            stateChanged.receive()
+        }
     }
 
-    stateChanged.close()
+    if (!stateChanged.isClosedForSend) {
+        stateChanged.close()
+    }
 }

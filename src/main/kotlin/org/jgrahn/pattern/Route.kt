@@ -1,6 +1,9 @@
 package org.jgrahn.pattern
 
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import java.util.concurrent.atomic.AtomicReference
 
@@ -60,22 +63,42 @@ private suspend fun <T, K: PassengerList> routeStopsWithState(
             val result = handleStop(stop, context)
             when (result) {
                 is StopExecutionResult.FanOut<*, *> -> {
-                    boardedPassengerIdsAtom.getAndUpdate { it + stop.produces }
-                    executionStatusAtom.get()[stop] = ExecutionStatus.Completed
-
                     val fanOutContexts = result.contexts as List<RouteHandlerContext<T, K>>
-                    fanOutContexts.forEach { fanOutContext ->
-                        routeStopsWithState(
-                            fanOutContext,
-                            boardedPassengerIdsAtom,
-                            executionStatusAtom,
-                            failureReasonsAtom,
-                            threadSemaphore,
-                            stateChanged
-                        )
-                    }
+                    coroutineScope {
+                        fanOutContexts.forEach { fanOutContext ->
+                            launch {
+                                // completely fresh state for this branch
+                                val branchBoardedPassengerIdsAtom =
+                                    AtomicReference(boardedPassengerIdsAtom.get().toSet())
 
+                                branchBoardedPassengerIdsAtom.getAndUpdate { it + stop.produces }
+
+                                val branchExecutionStatusAtom =
+                                    AtomicReference(executionStatusAtom.get().toMutableMap())
+
+                                branchExecutionStatusAtom.get()[stop] = ExecutionStatus.Completed
+
+                                val branchFailureReasonsAtom =
+                                    AtomicReference<Map<StopId, String>>(emptyMap())
+
+                                val branchSemaphore = Semaphore(THREAD_LIMIT)
+                                val branchStateChanged = Channel<Unit>(Channel.UNLIMITED)
+
+                                routeStopsWithState(
+                                    fanOutContext,
+                                    branchBoardedPassengerIdsAtom,
+                                    branchExecutionStatusAtom,
+                                    branchFailureReasonsAtom,
+                                    branchSemaphore,
+                                    branchStateChanged,
+                                )
+
+//                                stateChanged.close()
+                            }
+                        }
+                    }
                 }
+
                 is StopExecutionResult.Single<*, *> -> {
                     when (val singleResult = result.result) {
                         is Result.Success -> {

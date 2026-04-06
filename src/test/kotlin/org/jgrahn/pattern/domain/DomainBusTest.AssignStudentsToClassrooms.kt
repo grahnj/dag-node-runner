@@ -8,7 +8,6 @@ import org.jgrahn.pattern.Query
 import org.jgrahn.pattern.QueryResult
 import org.jgrahn.pattern.Result
 import org.jgrahn.pattern.Route
-import org.jgrahn.pattern.RouteHandlerContext
 import org.jgrahn.pattern.domain.command.BuildStudentRosterResult
 import org.jgrahn.pattern.domain.command.CreateStudentRosterCommand
 import org.jgrahn.pattern.domain.query.AllActiveStudentListResult
